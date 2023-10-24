@@ -36,7 +36,7 @@ class Comment(TimedUserModel):
     body = models.TextField(_("body"), max_length=2500)
 
     def __str__(self) -> str:
-        return f"{self.post} _{('by')} {self.user}"
+        return f"{self.post} {_('by')} {self.user}"
 
 
 class PostLike(TimedUserModel):
