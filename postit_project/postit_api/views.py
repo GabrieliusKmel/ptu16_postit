@@ -1,7 +1,74 @@
+
+from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, mixins, response, status
 from rest_framework.validators import ValidationError
 from . import models, serializers
+
+User = get_user_model()
+
+
+class UserCreate(generics.CreateAPIView, mixins.DestroyModelMixin):
+    queryset = User.objects.all()
+    serializer_class = serializers.UserSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def delete(self, *args, **kwargs):
+        user = User.objects.filter(pk=self.request.user.pk)
+        if user.exists():
+            user.delete()
+            return response.Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            raise ValidationError('User does not exist')
+
+
+class PostLike(generics.CreateAPIView, mixins.DestroyModelMixin):
+    serializer_class = serializers.PostLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        post = models.Post.objects.get(pk=self.kwargs['pk'])
+        return models.PostLike.objects.filter(post=post, user=user)
+    
+    def perform_create(self, serializer):
+        if self.get_queryset().exists():
+            raise ValidationError("You can like this post only once.")
+        user = self.request.user
+        post = models.Post.objects.get(pk=self.kwargs['pk'])
+        serializer.save(post=post, user=user)
+
+    def delete(self, *args, **kwargs):
+        if self.get_queryset().exists():
+            self.get_queryset().delete()
+            return response.Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            raise ValidationError("You can only unlike this post after you like it.")
+    
+
+class CommentLike(generics.CreateAPIView, mixins.DestroyModelMixin):
+    serializer_class = serializers.CommentLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        comment = models.Comment.objects.get(pk=self.kwargs['pk'])
+        return models.CommentLike.objects.filter(comment=comment, user=user)
+    
+    def perform_create(self, serializer):
+        if self.get_queryset().exists():
+            raise ValidationError("You can like this comment only once.")
+        user = self.request.user
+        comment = models.Comment.objects.get(pk=self.kwargs['pk'])
+        serializer.save(comment=comment, user=user)
+
+    def delete(self, *args, **kwargs):
+        if self.get_queryset().exists():
+            self.get_queryset().delete()
+            return response.Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            raise ValidationError("You can only unlike this comment after you like it.")
+    
 
 
 class PostList(generics.ListCreateAPIView):
